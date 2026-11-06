@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GALAXIA MULTIPLICATIVA v6.0 - Carlos Garrido</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Quicksand:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-page: #020408; 
+            --game-main: #5865F2; 
+            --correct: #00E676;
+            --wrong: #FF1744; 
+            --gold: #FFD700; 
+            --neon: #BB86FC;
+            --panel-bg: rgba(10, 15, 30, 0.95);
+        }
+
+        body {
+            font-family: 'Quicksand', sans-serif; background: var(--bg-page);
+            margin: 0; display: flex; justify-content: center;
+            align-items: center; min-height: 100vh; overflow: hidden; color: white;
+        }
+
+        /* FONDO ESPACIAL MEJORADO */
+        #star-field { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: radial-gradient(circle at center, #0a0a2e 0%, #020408 100%); }
+        .star { position: absolute; background: white; border-radius: 50%; opacity: 0.6; animation: drift linear infinite; }
+        @keyframes drift { from { transform: translateY(0); } to { transform: translateY(-100vh); } }
+
+        /* HUD ACIERTOS/ERRORES NEÓN */
+        .hud-top {
+            position: fixed; top: 0; width: 100%; height: 90px;
+            display: flex; justify-content: center; align-items: center; gap: 40px;
+            z-index: 100; background: linear-gradient(to bottom, rgba(88, 101, 242, 0.2), transparent);
+            border-bottom: 1px solid rgba(187, 134, 252, 0.3);
+            backdrop-filter: blur(5px);
+        }
+        .stat-box { text-align: center; font-family: 'Luckiest Guy'; }
+        .stat-value { font-size: 3rem; line-height: 1; filter: drop-shadow(0 0 10px currentColor); }
+        .color-hit { color: var(--correct); }
+        .color-miss { color: var(--wrong); }
+
+        /* JUEGO CARD NEON */
+        .game-card { 
+            background: var(--panel-bg); 
+            border: 2px solid var(--game-main); 
+            border-radius: 40px; width: 90%; max-width: 800px; padding: 40px; 
+            text-align: center; position: relative;
+            box-shadow: 0 0 30px rgba(88, 101, 242, 0.4), inset 0 0 15px rgba(88, 101, 242, 0.2);
+        }
+
+        .q-text { 
+            font-family: 'Luckiest Guy'; font-size: 7.5rem; margin: 15px 0; 
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+
+        #user-ans { 
+            background: rgba(0, 0, 0, 0.5); border: 3px solid var(--neon); 
+            border-radius: 20px; color: var(--gold); font-family: 'Luckiest Guy'; 
+            font-size: 5rem; width: 220px; text-align: center; outline: none;
+            box-shadow: 0 0 15px var(--neon); transition: 0.3s;
+        }
+
+        /* FEEDBACK */
+        .ans-error { border-color: var(--wrong) !important; box-shadow: 0 0 25px var(--wrong) !important; background: rgba(255, 23, 68, 0.2) !important; }
+        #correct-helper { font-family: 'Luckiest Guy'; font-size: 3rem; color: var(--correct); margin-top: 10px; height: 50px; text-shadow: 0 0 10px var(--correct); }
+
+        /* INFORME ESTILO DOCUMENTO */
+        #report-card { background: white; color: #1a1a1a; padding: 30px; border-radius: 15px; text-align: left; border: 8px solid var(--game-main); }
+        .grade-badge { font-family: 'Luckiest Guy'; font-size: 2.2rem; text-align: center; padding: 15px; border: 4px dashed; border-radius: 10px; margin: 15px 0; }
+        
+        .error-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; }
+        .error-table th { background: #f8f9fa; border: 1px solid #ddd; padding: 8px; text-align: center; }
+        .error-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        .sol-val { color: #2e7d32; font-weight: bold; }
+
+        .tag { padding: 4px 10px; border-radius: 15px; font-size: 0.8rem; font-weight: bold; margin: 3px; display: inline-block; }
+        .tag-ok { background: #e8f5e9; color: #2e7d32; }
+        .tag-ko { background: #ffebee; color: #c62828; }
+
+        .btn-ui { padding: 15px 25px; border-radius: 12px; border: none; font-family: 'Luckiest Guy'; font-size: 1.1rem; cursor: pointer; transition: 0.3s; margin: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .btn-main { background: var(--game-main); color: white; box-shadow: 0 0 15px var(--game-main); }
+        .btn-pdf { background: #e74c3c; color: white; box-shadow: 0 0 10px #e74c3c; }
+        .btn-ui:hover { transform: scale(1.05); filter: brightness(1.2); }
+
+        .hidden { display: none !important; }
+        .credits { font-size: 0.9rem; margin-top: 30px; line-height: 1.5; }
+        .neon-text { color: var(--neon); text-shadow: 0 0 10px var(--neon); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="star-field"></div>
+    <audio id="bg-music" loop><source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3" type="audio/mpeg"></audio>
+
+    <div id="game-hud" class="hud-top hidden">
+        <div class="stat-box"><div class="stat-value color-hit" id="h-hits">0</div><div style="font-size:0.7rem; color:white;">SISTEMAS OK</div></div>
+        <div style="font-family:'Luckiest Guy'; color:var(--neon); font-size:1.5rem;">MISIÓN EN CURSO</div>
+        <div class="stat-box"><div class="stat-value color-miss" id="h-errors">0</div><div style="font-size:0.7rem; color:white;">FALLOS CRÍTICOS</div></div>
+    </div>
+
+    <div class="game-card">
+        <div id="screen-start">
+            <div style="font-size:100px; filter: drop-shadow(0 0 20px var(--game-main));">🚀</div>
+            <h1 style="font-family:'Luckiest Guy'; font-size:3.5rem; color:var(--gold); margin:0; text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);">GALAXIA MULTIPLICATIVA</h1>
+            <p class="neon-text" style="letter-spacing:2px; font-size:1.2rem;">SISTEMA DE ENTRENAMIENTO DE PILOTOS</p>
+            
+            <input type="text" id="player-name" placeholder="NOMBRE DEL CADETE..." style="background:rgba(255,255,255,0.05); border:2px solid var(--game-main); padding:18px; border-radius:15px; color:white; width:70%; text-align:center; font-size:1.4rem; margin: 25px 0; outline:none; box-shadow: 0 0 10px var(--game-main);">
+            <br>
+            <button class="btn-ui btn-main" style="font-size:1.5rem; padding: 20px 40px;" onclick="initEngine()">INICIAR MOTORES</button>
+            
+            <div class="credits">
+                Creado por IA Gemini por Carlos Garrido<br>
+                <span style="color:var(--neon)">MATEMÁTICAS - 3º Educación Primaria</span>
+            </div>
+        </div>
+
+        <div id="screen-menu" class="hidden">
+            <h2 style="font-family:'Luckiest Guy'; color:var(--gold); font-size:2rem;">MAPA DE NAVEGACIÓN</h2>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:20px;">
+                <button class="btn-ui btn-main" style="background:#2ecc71" onclick="startGame([2,3])">Sector Nebulosa (2-3)</button>
+                <button class="btn-ui btn-main" style="background:#3498db" onclick="startGame([4,5])">Sector Estelar (4-5)</button>
+                <button class="btn-ui btn-main" style="background:#f39c12" onclick="startGame([6,7])">Sector Cometa (6-7)</button>
+                <button class="btn-ui btn-main" style="background:#9b59b6" onclick="startGame([8,9,10])">Sector Galáctico (8-10)</button>
+                <button class="btn-ui btn-main" style="grid-column:span 2; background:linear-gradient(45deg, var(--gold), #ff8c00); color:black;" onclick="startGame([2,3,4,5,6,7,8,9,10])">⚡ EL GRAN RETO DEL UNIVERSO ⚡</button>
+            </div>
+        </div>
+
+        <div id="screen-game" class="hidden">
+            <div id="display-progress" style="font-size:1.1rem; color:var(--neon); font-weight:bold;">COORDENADA 1 DE 10</div>
+            <div class="q-text" id="display-q">0 × 0</div>
+            <input type="number" id="user-ans" autocomplete="off">
+            <div id="correct-helper"></div>
+        </div>
+
+        <div id="screen-results" class="hidden">
+            <div id="pdf-content">
+                <div id="report-card">
+                    <div style="display:flex; justify-content:space-between; border-bottom:2px solid #eee; padding-bottom:10px; align-items:center;">
+                        <div>
+                            <strong style="color:var(--game-main); font-size:1.2rem;">INFORME DE MISIÓN ESPACIAL</strong><br>
+                            <span style="font-size:0.9rem; color: #666;">Maestro: Carlos Garrido</span>
+                        </div>
+                        <span id="rep-date" style="font-size:0.8rem; font-weight:bold;"></span>
+                    </div>
+                    
+                    <p style="margin:15px 0;"><strong>PILOTO EVALUADO:</strong> <span id="rep-name" style="color:var(--game-main); font-weight:bold;"></span></p>
+                    
+                    <div id="rep-grade" class="grade-badge">NOTABLE</div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; font-size:0.9rem;">
+                        <div>
+                            <strong>ESTADÍSTICAS DE VUELO:</strong><br>
+                            Aciertos: <span class="color-hit" id="rep-hits" style="font-weight:bold;">0</span> / 10<br>
+                            Errores: <span class="color-miss" id="rep-errors" style="font-weight:bold;">0</span> / 10<br>
+                            Efectividad: <span id="rep-perc" style="font-weight:bold;">0%</span>
+                        </div>
+                        <div>
+                            <strong>DIAGNÓSTICO:</strong><br>
+                            <span id="rep-obs" style="font-style:italic; font-size:0.85rem;"></span>
+                        </div>
+                    </div>
+
+                    <div id="error-details-area" style="margin-top:20px;">
+                        <strong style="font-size:0.9rem; color:var(--wrong);">ANÁLISIS DE FALLOS Y SOLUCIONES:</strong>
+                        <table class="error-table" id="table-errors">
+                            <thead>
+                                <tr>
+                                    <th>Pregunta</th>
+                                    <th>Tu Respuesta</th>
+                                    <th>Respuesta Correcta</th>
+                                </tr>
+                            </thead>
+                            <tbody id="error-body">
+                                </tbody>
+                        </table>
+                    </div>
+
+                    <div style="margin-top:20px; padding-top:10px; border-top:1px solid #eee;">
+                        <strong>SISTEMAS DOMINADOS:</strong> <div id="rep-ok-list"></div>
+                        <strong>REPASO NECESARIO EN:</strong> <div id="rep-ko-list"></div>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:20px;">
+                <button class="btn-ui btn-pdf" onclick="exportPDF()">📥 DESCARGAR PDF</button>
+                <button class="btn-ui btn-main" onclick="location.reload()">REINTENTAR MISIÓN</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let hits = 0, errors = 0, currentIdx = 0, questions = [], tablesInSet = [];
+        let failedT = new Set(), successT = new Set();
+        let errorLog = []; // Para la tabla del informe
+        const { jsPDF } = window.jspdf;
+
+        // Estrellas de fondo
+        const field = document.getElementById('star-field');
+        for(let i=0; i<85; i++) {
+            let s = document.createElement('div'); s.className = 'star';
+            s.style.width = s.style.height = Math.random()*3+'px';
+            s.style.left = Math.random()*100+'%'; s.style.top = Math.random()*100+'%';
+            s.style.animationDuration = Math.random()*4+2+'s'; field.appendChild(s);
+        }
+
+        function initEngine() {
+            document.getElementById('bg-music').play().catch(()=>{});
+            document.getElementById('screen-start').classList.add('hidden');
+            document.getElementById('screen-menu').classList.remove('hidden');
+        }
+
+        function startGame(set) {
+            tablesInSet = set;
+            let pool = [];
+            set.forEach(t => { for(let n=1; n<=10; n++) pool.push({q:`${t} × ${n}`, a:t*n, t:t}); });
+            questions = pool.sort(() => Math.random() - 0.5).slice(0, 10);
+            
+            hits = 0; errors = 0; currentIdx = 0;
+            failedT.clear(); successT.clear(); errorLog = [];
+            
+            document.getElementById('screen-menu').classList.add('hidden');
+            document.getElementById('game-hud').classList.remove('hidden');
+            document.getElementById('screen-game').classList.remove('hidden');
+            updateHUD();
+            nextQuestion();
+        }
+
+        function nextQuestion() {
+            if(currentIdx >= 10) return finishGame();
+            document.getElementById('display-progress').innerText = `COORDENADA ${currentIdx + 1} DE 10`;
+            document.getElementById('display-q').innerText = questions[currentIdx].q;
+            document.getElementById('user-ans').value = "";
+            document.getElementById('user-ans').className = "";
+            document.getElementById('correct-helper').innerText = "";
+            document.getElementById('user-ans').disabled = false;
+            document.getElementById('user-ans').focus();
+        }
+
+        document.getElementById('user-ans').addEventListener('keypress', function(e) {
+            if(e.key === 'Enter' && this.value !== "") {
+                processAnswer(parseInt(this.value));
+            }
+        });
+
+        function processAnswer(val) {
+            const q = questions[currentIdx];
+            const isCorrect = val === q.a;
+            const input = document.getElementById('user-ans');
+            input.disabled = true;
+
+            if(isCorrect) {
+                hits++;
+                successT.add(q.t);
+                confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 }, colors: ['#00E676', '#5865F2'] });
+                setTimeout(() => { currentIdx++; nextQuestion(); updateHUD(); }, 600);
+            } else {
+                errors++;
+                failedT.add(q.t);
+                errorLog.push({ q: q.q, user: val, correct: q.a });
+                input.classList.add('ans-error');
+                document.getElementById('correct-helper').innerText = `SISTEMA: EL RESULTADO ES ${q.a}`;
+                setTimeout(() => { currentIdx++; nextQuestion(); updateHUD(); }, 1600);
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('h-hits').innerText = hits;
+            document.getElementById('h-errors').innerText = errors;
+        }
+
+        function finishGame() {
+            document.getElementById('screen-game').classList.add('hidden');
+            document.getElementById('game-hud').classList.add('hidden');
+            document.getElementById('screen-results').classList.remove('hidden');
+
+            const p = (hits / 10) * 100;
+            const name = document.getElementById('player-name').value || "PILOTO DESCONOCIDO";
+            document.getElementById('rep-name').innerText = name.toUpperCase();
+            document.getElementById('rep-date').innerText = new Date().toLocaleDateString();
+            document.getElementById('rep-perc').innerText = p + "%";
+            document.getElementById('rep-hits').innerText = hits;
+            document.getElementById('rep-errors').innerText = errors;
+
+            // Tabla de errores dinámica
+            const errorBody = document.getElementById('error-body');
+            errorBody.innerHTML = "";
+            if(errorLog.length === 0) {
+                errorBody.innerHTML = "<tr><td colspan='3' style='color:#2e7d32'>¡Vuelo perfecto! No se han detectado fallos técnicos.</td></tr>";
+            } else {
+                errorLog.forEach(item => {
+                    errorBody.innerHTML += `<tr><td>${item.q}</td><td style="color:#c62828">${item.user}</td><td class="sol-val">${item.correct}</td></tr>`;
+                });
+            }
+
+            let g = "", c = "", o = "";
+            if(p >= 95) { g="SOBRESALIENTE"; c="#00E676"; o="Capacidad de pilotaje excepcional. Los algoritmos están integrados en su memoria a largo plazo."; }
+            else if(p >= 80) { g="NOTABLE"; c="#5865F2"; o="Buen control de la nave. Errores puntuales por falta de concentración."; }
+            else if(p >= 60) { g="BIEN"; c="#f1c40f"; o="Nivel de cadete estable. Se recomienda practicar las tablas marcadas para mejorar la seguridad."; }
+            else if(p >= 50) { g="SUFICIENTE"; c="#e67e22"; o="Aprobado por los pelos. Necesita entrenamiento diario en simulador."; }
+            else { g="INSUFICIENTE"; c="#e74c3c"; o="Misión fallida. Se requiere estudio intensivo de las tablas de multiplicar."; }
+
+            const badge = document.getElementById('rep-grade');
+            badge.innerText = g; badge.style.color = c; badge.style.borderColor = c;
+            document.getElementById('rep-obs').innerText = o;
+
+            const okList = document.getElementById('rep-ok-list');
+            const koList = document.getElementById('rep-ko-list');
+            okList.innerHTML = ""; koList.innerHTML = "";
+            
+            tablesInSet.forEach(t => {
+                if(failedT.has(t)) koList.innerHTML += `<span class="tag tag-ko">Tabla del ${t}</span>`;
+                else if(successT.has(t)) okList.innerHTML += `<span class="tag tag-ok">Tabla del ${t}</span>`;
+            });
+        }
+
+        async function exportPDF() {
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const element = document.getElementById('pdf-content');
+            const canvas = await html2canvas(element, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const imgProps = doc.getImageProperties(imgData);
+            const pdfWidth = doc.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            
+            doc.addImage(imgData, 'PNG', 0, 5, pdfWidth, pdfHeight);
+            doc.save(`Informe_Galactico_${document.getElementById('rep-name').innerText}.pdf`);
+        }
+    </script>
+</body>
+</html>
